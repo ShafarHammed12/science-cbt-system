@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson - Science CBT System</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🔬 Science CBT</h2>
+        <p>E-Learning System</p>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="dashboard.html"><span class="icon">🏠</span> Dashboard</a></li>
+        <li><a href="topics.html" class="active"><span class="icon">📚</span> Topics</a></li>
+        <li><a href="my-results.html"><span class="icon">📊</span> My Results</a></li>
+        <li><a href="my-progress.html"><span class="icon">📈</span> My Progress</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="userName"></strong>
+          <span id="userClass"></span>
+        </div>
+        <button class="btn btn-danger btn-sm btn-block" onclick="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1 id="lessonTitle">Loading...</h1>
+        <button onclick="history.back()" class="btn btn-outline btn-sm">← Back</button>
+      </div>
+
+      <div id="videoSection" style="display:none">
+        <div class="video-wrapper">
+          <video id="lessonVideo" controls>
+            <source src="" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="lesson-content" id="lessonContent">
+          Loading lesson content...
+        </div>
+      </div>
+
+      <div class="mt-20 text-center">
+        <button id="markComplete" class="btn btn-success">✅ Mark as Completed</button>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!requireAuth()) return;
+      const user = getUser();
+      document.getElementById('userName').textContent = user.fullName;
+      document.getElementById('userClass').textContent = user.className;
+
+      const params = new URLSearchParams(window.location.search);
+      const lessonId = params.get('lessonId');
+      if (!lessonId) { window.location.href = 'topics.html'; return; }
+
+      try {
+        const lesson = await apiRequest(`/lessons/${lessonId}`);
+        document.getElementById('lessonTitle').textContent = lesson.title;
+        document.getElementById('lessonContent').innerHTML = lesson.content.replace(/\n/g, '<br>');
+
+        if (lesson.videoUrl) {
+          document.getElementById('videoSection').style.display = 'block';
+          document.getElementById('lessonVideo').querySelector('source').src = lesson.videoUrl;
+          document.getElementById('lessonVideo').load();
+        }
+
+        document.getElementById('markComplete').addEventListener('click', async () => {
+          try {
+            await apiRequest('/progress/complete', {
+              method: 'POST',
+              body: JSON.stringify({ lessonId })
+            });
+            document.getElementById('markComplete').textContent = '✅ Completed!';
+            document.getElementById('markComplete').disabled = true;
+            document.getElementById('markComplete').classList.remove('btn-success');
+            document.getElementById('markComplete').classList.add('btn-outline');
+          } catch (err) {
+            alert('Error: ' + err.message);
+          }
+        });
+      } catch (error) {
+        document.getElementById('lessonContent').textContent = 'Error loading lesson: ' + error.message;
+      }
+    });
+  </script>
+</body>
+</html>

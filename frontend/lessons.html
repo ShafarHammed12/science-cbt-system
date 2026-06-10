@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lessons - Science CBT System</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🔬 Science CBT</h2>
+        <p>E-Learning System</p>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="dashboard.html"><span class="icon">🏠</span> Dashboard</a></li>
+        <li><a href="topics.html" class="active"><span class="icon">📚</span> Topics</a></li>
+        <li><a href="my-results.html"><span class="icon">📊</span> My Results</a></li>
+        <li><a href="my-progress.html"><span class="icon">📈</span> My Progress</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="userName"></strong>
+          <span id="userClass"></span>
+        </div>
+        <button class="btn btn-danger btn-sm btn-block" onclick="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1 id="pageTitle">Lessons</h1>
+        <a href="topics.html" class="btn btn-outline btn-sm">← Back to Topics</a>
+      </div>
+
+      <div id="progressInfo" class="card mb-20" style="display:none">
+        <div class="flex justify-between items-center">
+          <span>Your Progress</span>
+          <span id="progressText">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="content-grid" id="lessonsGrid">
+        <div class="text-center" style="grid-column: 1/-1; padding: 40px;">Loading lessons...</div>
+      </div>
+
+      <div class="mt-20 text-center">
+        <a id="startCBT" href="#" class="btn btn-primary" style="display:none">🎯 Take CBT Test on This Topic</a>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!requireAuth()) return;
+      const user = getUser();
+      document.getElementById('userName').textContent = user.fullName;
+      document.getElementById('userClass').textContent = user.className;
+
+      const params = new URLSearchParams(window.location.search);
+      const topicId = params.get('topicId');
+      const topicTitle = params.get('topicTitle');
+
+      if (!topicId) { window.location.href = 'topics.html'; return; }
+      document.getElementById('pageTitle').textContent = topicTitle || 'Lessons';
+
+      try {
+        const [lessons, progress] = await Promise.all([
+          apiRequest(`/lessons?topic=${topicId}`),
+          apiRequest(`/progress/topic/${topicId}`)
+        ]);
+
+        if (progress.totalLessons > 0) {
+          document.getElementById('progressInfo').style.display = 'block';
+          document.getElementById('progressText').textContent = progress.percentage + '%';
+          document.getElementById('progressFill').style.width = progress.percentage + '%';
+        }
+
+        const grid = document.getElementById('lessonsGrid');
+        if (lessons.length === 0) {
+          grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📖</div><h3>No Lessons Yet</h3><p>Lessons will be added soon.</p></div>';
+        } else {
+          grid.innerHTML = lessons.map((l, i) => `
+            <div class="content-card" onclick="window.location.href='lesson-view.html?lessonId=${l._id}'">
+              <h3>Lesson ${i + 1}: ${l.title}</h3>
+              <p>${l.content.substring(0, 100)}...</p>
+              ${l.videoUrl ? '<span class="badge badge-warning">🎬 Has Video</span>' : ''}
+            </div>
+          `).join('');
+        }
+
+        const cbtBtn = document.getElementById('startCBT');
+        cbtBtn.style.display = 'inline-block';
+        cbtBtn.href = `cbt.html?topicId=${topicId}&topicTitle=${encodeURIComponent(topicTitle)}`;
+      } catch (error) {
+        console.error('Lessons load error:', error);
+      }
+    });
+  </script>
+</body>
+</html>

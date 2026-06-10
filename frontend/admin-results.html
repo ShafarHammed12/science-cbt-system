@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All Results - Science CBT System</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🔬 Science CBT</h2>
+        <p>Admin Panel</p>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="admin-dashboard.html"><span class="icon">🏠</span> Dashboard</a></li>
+        <li><a href="admin-topics.html"><span class="icon">📚</span> Manage Topics</a></li>
+        <li><a href="admin-lessons.html"><span class="icon">📖</span> Manage Lessons</a></li>
+        <li><a href="admin-questions.html"><span class="icon">❓</span> Manage Questions</a></li>
+        <li><a href="admin-results.html" class="active"><span class="icon">📊</span> All Results</a></li>
+        <li><a href="admin-reports.html"><span class="icon">📋</span> Reports</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="userName"></strong>
+          <span>Administrator</span>
+        </div>
+        <button class="btn btn-danger btn-sm btn-block" onclick="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1>📊 All Student Results</h1>
+      </div>
+
+      <div class="card">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Email</th>
+                <th>Class</th>
+                <th>Topic</th>
+                <th>Score</th>
+                <th>Correct/Total</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="resultsTable">
+              <tr><td colspan="7" class="text-center">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!requireAuth() || !requireAdmin()) return;
+      document.getElementById('userName').textContent = getUser().fullName;
+
+      try {
+        const results = await apiRequest('/results/all');
+        const tbody = document.getElementById('resultsTable');
+        if (results.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center">No test results yet.</td></tr>';
+        } else {
+          tbody.innerHTML = results.map(r => `
+            <tr>
+              <td>${r.student ? r.student.fullName : 'N/A'}</td>
+              <td>${r.student ? r.student.email : '--'}</td>
+              <td><span class="badge badge-primary">${r.student ? r.student.className : '--'}</span></td>
+              <td>${r.topic ? r.topic.title : 'N/A'}</td>
+              <td><span class="badge ${r.score >= 50 ? 'badge-success' : 'badge-danger'}">${r.score}%</span></td>
+              <td>${r.correctAnswers}/${r.totalQuestions}</td>
+              <td>${formatDate(r.completedAt)}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Results load error:', error);
+      }
+    });
+  </script>
+</body>
+</html>
