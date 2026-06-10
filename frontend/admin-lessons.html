@@ -98,6 +98,33 @@
     </div>
   </div>
 
+  <!-- Generate Questions Modal -->
+  <div class="modal-overlay" id="generateModal">
+    <div class="modal">
+      <h2>🤖 AI Generate Questions</h2>
+      <p id="generateLessonName" style="color: var(--gray-500); margin-bottom: 16px;"></p>
+      <div id="generateAlert" class="alert"></div>
+      <form id="generateForm">
+        <input type="hidden" id="generateLessonId">
+        <div class="form-group">
+          <label for="questionCount">Number of Questions to Generate</label>
+          <select id="questionCount">
+            <option value="5">5 questions</option>
+            <option value="10" selected>10 questions</option>
+            <option value="15">15 questions</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeGenerateModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="generateBtn">🤖 Generate</button>
+        </div>
+      </form>
+      <div id="generateResult" style="display:none; margin-top: 16px;">
+        <div class="alert alert-success" id="generateResultMsg"></div>
+      </div>
+    </div>
+  </div>
+
   <script src="js/auth.js"></script>
   <script>
     let lessons = [];
@@ -173,6 +200,7 @@
               <td>${l.order}</td>
               <td>
                 <button class="btn btn-sm btn-outline" onclick="editLesson('${l._id}')">Edit</button>
+                <button class="btn btn-sm btn-primary" onclick="openGenerateModal('${l._id}', '${l.title.replace(/'/g, "\\'")}')">🤖 Generate Q</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteLesson('${l._id}')">Delete</button>
               </td>
             </tr>
@@ -220,6 +248,48 @@
         alert('Error: ' + error.message);
       }
     }
+
+    function openGenerateModal(lessonId, lessonTitle) {
+      document.getElementById('generateLessonId').value = lessonId;
+      document.getElementById('generateLessonName').textContent = 'Lesson: ' + lessonTitle;
+      document.getElementById('generateResult').style.display = 'none';
+      document.getElementById('generateAlert').style.display = 'none';
+      document.getElementById('generateBtn').disabled = false;
+      document.getElementById('generateBtn').textContent = '🤖 Generate';
+      document.getElementById('generateModal').classList.add('active');
+    }
+
+    function closeGenerateModal() {
+      document.getElementById('generateModal').classList.remove('active');
+    }
+
+    document.getElementById('generateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('generateBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Generating...';
+      document.getElementById('generateResult').style.display = 'none';
+      document.getElementById('generateAlert').style.display = 'none';
+
+      try {
+        const data = await apiRequest('/questions/generate', {
+          method: 'POST',
+          body: JSON.stringify({
+            lessonId: document.getElementById('generateLessonId').value,
+            count: document.getElementById('questionCount').value
+          })
+        });
+        document.getElementById('generateResultMsg').textContent = data.message;
+        document.getElementById('generateResult').style.display = 'block';
+        btn.textContent = '✅ Done!';
+      } catch (error) {
+        document.getElementById('generateAlert').className = 'alert alert-danger';
+        document.getElementById('generateAlert').textContent = error.message;
+        document.getElementById('generateAlert').style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = '🤖 Generate';
+      }
+    });
   </script>
 </body>
 </html>
