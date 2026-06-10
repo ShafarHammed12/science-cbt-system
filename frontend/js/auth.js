@@ -49,8 +49,9 @@ async function apiRequest(endpoint, options = {}) {
   const config = {
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      ...(token ? { 'X-Auth-Token': `Bearer ${token}` } : {})
     },
+    credentials: 'same-origin',
     ...options
   };
 
@@ -67,7 +68,8 @@ async function apiUpload(endpoint, formData) {
   const token = getToken();
   const response = await fetch(`${API_BASE}${endpoint}`, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}` },
+    headers: { 'X-Auth-Token': `Bearer ${token}` },
+    credentials: 'same-origin',
     body: formData
   });
   const data = await response.json();
