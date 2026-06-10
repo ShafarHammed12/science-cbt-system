@@ -4,8 +4,8 @@ const { createQuestion, getQuestions, getQuestion, updateQuestion, deleteQuestio
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
 router.get('/', protect, getQuestions);
-router.get('/:id', protect, getQuestion);
 router.get('/cbt/:topicId', protect, getCBTQuestions);
+router.get('/:id', protect, getQuestion);
 router.post('/', protect, adminOnly, createQuestion);
 router.put('/:id', protect, adminOnly, updateQuestion);
 router.delete('/:id', protect, adminOnly, deleteQuestion);
