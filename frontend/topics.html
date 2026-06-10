@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Topics - Science CBT System</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🔬 Science CBT</h2>
+        <p>E-Learning System</p>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="dashboard.html"><span class="icon">🏠</span> Dashboard</a></li>
+        <li><a href="topics.html" class="active"><span class="icon">📚</span> Topics</a></li>
+        <li><a href="my-results.html"><span class="icon">📊</span> My Results</a></li>
+        <li><a href="my-progress.html"><span class="icon">📈</span> My Progress</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="userName"></strong>
+          <span id="userClass"></span>
+        </div>
+        <button class="btn btn-danger btn-sm btn-block" onclick="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1>📚 Topics</h1>
+      </div>
+
+      <div class="content-grid" id="topicsGrid">
+        <div class="text-center" style="grid-column: 1/-1; padding: 40px;">Loading topics...</div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!requireAuth()) return;
+      const user = getUser();
+      document.getElementById('userName').textContent = user.fullName;
+      document.getElementById('userClass').textContent = user.className;
+
+      try {
+        const topics = await apiRequest(`/topics?className=${user.className}`);
+        const grid = document.getElementById('topicsGrid');
+
+        if (topics.length === 0) {
+          grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📚</div><h3>No Topics Yet</h3><p>Topics for ${user.className} will appear here.</p></div>`;
+          return;
+        }
+
+        grid.innerHTML = topics.map(t => `
+          <div class="content-card" onclick="window.location.href='lessons.html?topicId=${t._id}&topicTitle=${encodeURIComponent(t.title)}'">
+            <h3>${t.title}</h3>
+            <p>${t.description || 'Explore this topic'}</p>
+            <div class="flex justify-between items-center">
+              <span class="badge badge-primary">${t.className}</span>
+              <span class="btn btn-outline btn-sm">View Lessons →</span>
+            </div>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('Topics load error:', error);
+      }
+    });
+  </script>
+</body>
+</html>

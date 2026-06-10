@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Results - Science CBT System</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🔬 Science CBT</h2>
+        <p>E-Learning System</p>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="dashboard.html"><span class="icon">🏠</span> Dashboard</a></li>
+        <li><a href="topics.html"><span class="icon">📚</span> Topics</a></li>
+        <li><a href="my-results.html" class="active"><span class="icon">📊</span> My Results</a></li>
+        <li><a href="my-progress.html"><span class="icon">📈</span> My Progress</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="userName"></strong>
+          <span id="userClass"></span>
+        </div>
+        <button class="btn btn-danger btn-sm btn-block" onclick="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1>📊 My Results</h1>
+      </div>
+
+      <div class="stats-grid mb-20">
+        <div class="stat-card">
+          <div class="stat-icon">📝</div>
+          <div class="stat-value" id="totalTests">0</div>
+          <div class="stat-label">Total Tests</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⭐</div>
+          <div class="stat-value" id="avgScore">0%</div>
+          <div class="stat-label">Average Score</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🏆</div>
+          <div class="stat-value" id="bestScore">0%</div>
+          <div class="stat-label">Best Score</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>All Test Results</h3>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Topic</th>
+                <th>Score</th>
+                <th>Correct/Total</th>
+                <th>Time Taken</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="resultsTable">
+              <tr><td colspan="5" class="text-center">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!requireAuth()) return;
+      const user = getUser();
+      document.getElementById('userName').textContent = user.fullName;
+      document.getElementById('userClass').textContent = user.className;
+
+      try {
+        const results = await apiRequest('/results/my');
+        document.getElementById('totalTests').textContent = results.length;
+
+        if (results.length > 0) {
+          const avg = Math.round(results.reduce((s, r) => s + r.score, 0) / results.length);
+          const best = Math.max(...results.map(r => r.score));
+          document.getElementById('avgScore').textContent = avg + '%';
+          document.getElementById('bestScore').textContent = best + '%';
+        }
+
+        const tbody = document.getElementById('resultsTable');
+        if (results.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center">No test results yet. Take a CBT test to see your results!</td></tr>';
+        } else {
+          tbody.innerHTML = results.map(r => `
+            <tr>
+              <td>${r.topic ? r.topic.title : 'N/A'}</td>
+              <td><span class="badge ${r.score >= 50 ? 'badge-success' : 'badge-danger'}">${r.score}%</span></td>
+              <td>${r.correctAnswers}/${r.totalQuestions}</td>
+              <td>${r.timeTaken ? formatTime(r.timeTaken) : '--'}</td>
+              <td>${formatDate(r.completedAt)}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Results load error:', error);
+      }
+    });
+  </script>
+</body>
+</html>

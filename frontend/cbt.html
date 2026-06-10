@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CBT Test - Science CBT System</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🔬 Science CBT</h2>
+        <p>E-Learning System</p>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="dashboard.html"><span class="icon">🏠</span> Dashboard</a></li>
+        <li><a href="topics.html"><span class="icon">📚</span> Topics</a></li>
+        <li><a href="my-results.html"><span class="icon">📊</span> My Results</a></li>
+        <li><a href="my-progress.html"><span class="icon">📈</span> My Progress</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="userName"></strong>
+          <span id="userClass"></span>
+        </div>
+        <button class="btn btn-danger btn-sm btn-block" onclick="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <!-- Before test starts -->
+      <div id="cbtIntro" class="cbt-container">
+        <div class="card text-center" style="padding: 50px;">
+          <h1 id="cbtTopicTitle">CBT Test</h1>
+          <p class="mt-10" style="color: var(--gray-500); font-size: 16px;">You will be presented with multiple-choice questions. Select the best answer for each question.</p>
+          <div class="mt-20">
+            <p><strong>Time Limit:</strong> 30 minutes</p>
+            <p><strong>Questions:</strong> <span id="totalQCount">--</span></p>
+          </div>
+          <button class="btn btn-primary mt-20" id="startTestBtn" style="font-size: 18px; padding: 14px 40px;">🎯 Start Test</button>
+          <div id="noQuestions" style="display:none" class="mt-20">
+            <p style="color: var(--danger);">No questions available for this topic yet.</p>
+            <a href="topics.html" class="btn btn-outline mt-10">← Back to Topics</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- During test -->
+      <div id="cbtTest" class="cbt-container" style="display:none">
+        <div class="cbt-header">
+          <div class="cbt-progress-text">Question <span id="currentQ">1</span> of <span id="totalQ">0</span></div>
+          <div class="cbt-timer" id="timer">30:00</div>
+        </div>
+
+        <div class="question-card">
+          <div class="question-number" id="qNumber">Question 1</div>
+          <div class="question-text" id="qText"></div>
+          <ul class="option-list" id="optionsList"></ul>
+        </div>
+
+        <div class="cbt-nav">
+          <button class="btn btn-outline" id="prevBtn" disabled>← Previous</button>
+          <button class="btn btn-primary" id="nextBtn">Next →</button>
+          <button class="btn btn-success" id="submitBtn" style="display:none">Submit Test</button>
+        </div>
+      </div>
+
+      <!-- After test -->
+      <div id="cbtResult" class="cbt-container" style="display:none">
+        <div class="card">
+          <div class="score-display">
+            <div class="score-circle" id="scoreCircle">0%</div>
+            <h2 id="resultMessage">Test Complete!</h2>
+            <p class="mt-10" style="color: var(--gray-500);" id="resultDetail"></p>
+          </div>
+          <div class="mt-20 text-center">
+            <a href="my-results.html" class="btn btn-primary">View All Results</a>
+            <a href="topics.html" class="btn btn-outline" style="margin-left: 10px;">Back to Topics</a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    let questions = [];
+    let currentIndex = 0;
+    let userAnswers = {};
+    let timerInterval;
+    let timeRemaining = 30 * 60;
+    let topicId;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!requireAuth()) return;
+      const user = getUser();
+      document.getElementById('userName').textContent = user.fullName;
+      document.getElementById('userClass').textContent = user.className;
+
+      const params = new URLSearchParams(window.location.search);
+      topicId = params.get('topicId');
+      const topicTitle = params.get('topicTitle');
+
+      if (!topicId) { window.location.href = 'topics.html'; return; }
+      document.getElementById('cbtTopicTitle').textContent = `CBT: ${topicTitle || 'Test'}`;
+
+      try {
+        questions = await apiRequest(`/questions/cbt/${topicId}`);
+        if (questions.length === 0) {
+          document.getElementById('startTestBtn').style.display = 'none';
+          document.getElementById('noQuestions').style.display = 'block';
+          return;
+        }
+        document.getElementById('totalQCount').textContent = questions.length;
+      } catch (error) {
+        console.error('Error loading questions:', error);
+      }
+
+      document.getElementById('startTestBtn').addEventListener('click', startTest);
+      document.getElementById('prevBtn').addEventListener('click', prevQuestion);
+      document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+      document.getElementById('submitBtn').addEventListener('click', submitTest);
+    });
+
+    function startTest() {
+      document.getElementById('cbtIntro').style.display = 'none';
+      document.getElementById('cbtTest').style.display = 'block';
+      document.getElementById('totalQ').textContent = questions.length;
+      showQuestion(0);
+      startTimer();
+    }
+
+    function showQuestion(index) {
+      currentIndex = index;
+      const q = questions[index];
+      document.getElementById('currentQ').textContent = index + 1;
+      document.getElementById('qNumber').textContent = `Question ${index + 1}`;
+      document.getElementById('qText').textContent = q.question;
+
+      const optionsList = document.getElementById('optionsList');
+      optionsList.innerHTML = q.options.map((opt, i) => `
+        <li onclick="selectOption(${i})" class="${userAnswers[q._id] === i ? 'selected' : ''}" data-index="${i}">
+          <strong>${String.fromCharCode(65 + i)}.</strong> ${opt}
+        </li>
+      `).join('');
+
+      document.getElementById('prevBtn').disabled = index === 0;
+      if (index === questions.length - 1) {
+        document.getElementById('nextBtn').style.display = 'none';
+        document.getElementById('submitBtn').style.display = 'inline-block';
+      } else {
+        document.getElementById('nextBtn').style.display = 'inline-block';
+        document.getElementById('submitBtn').style.display = 'none';
+      }
+    }
+
+    function selectOption(optionIndex) {
+      const q = questions[currentIndex];
+      userAnswers[q._id] = optionIndex;
+      document.querySelectorAll('.option-list li').forEach(li => li.classList.remove('selected'));
+      document.querySelector(`.option-list li[data-index="${optionIndex}"]`).classList.add('selected');
+    }
+
+    function nextQuestion() {
+      if (currentIndex < questions.length - 1) showQuestion(currentIndex + 1);
+    }
+
+    function prevQuestion() {
+      if (currentIndex > 0) showQuestion(currentIndex - 1);
+    }
+
+    function startTimer() {
+      timerInterval = setInterval(() => {
+        timeRemaining--;
+        const mins = Math.floor(timeRemaining / 60);
+        const secs = timeRemaining % 60;
+        document.getElementById('timer').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+        if (timeRemaining <= 0) {
+          clearInterval(timerInterval);
+          submitTest();
+        }
+
+        if (timeRemaining <= 60) {
+          document.getElementById('timer').style.color = 'var(--danger)';
+        }
+      }, 1000);
+    }
+
+    async function submitTest() {
+      clearInterval(timerInterval);
+      const timeTaken = (30 * 60) - timeRemaining;
+
+      const answers = questions.map(q => ({
+        questionId: q._id,
+        selectedAnswer: userAnswers[q._id] !== undefined ? userAnswers[q._id] : -1
+      }));
+
+      try {
+        const result = await apiRequest('/results/submit', {
+          method: 'POST',
+          body: JSON.stringify({ topicId, answers, timeTaken })
+        });
+
+        document.getElementById('cbtTest').style.display = 'none';
+        document.getElementById('cbtResult').style.display = 'block';
+
+        const scoreCircle = document.getElementById('scoreCircle');
+        scoreCircle.textContent = result.score + '%';
+        scoreCircle.className = `score-circle ${result.score >= 50 ? 'score-pass' : 'score-fail'}`;
+
+        document.getElementById('resultMessage').textContent =
+          result.score >= 50 ? 'Well Done!' : 'Keep Practicing!';
+        document.getElementById('resultDetail').textContent =
+          `You scored ${result.correctAnswers} out of ${result.totalQuestions} questions correctly in ${formatTime(timeTaken)}.`;
+      } catch (error) {
+        alert('Error submitting test: ' + error.message);
+      }
+    }
+  </script>
+</body>
+</html>
