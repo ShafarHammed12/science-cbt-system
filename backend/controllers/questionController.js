@@ -85,7 +85,7 @@ exports.generateQuestions = async (req, res) => {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
     const prompt = `You are a Basic Science teacher for Junior Secondary School (${lesson.topic.className}) in Nigeria.
 
