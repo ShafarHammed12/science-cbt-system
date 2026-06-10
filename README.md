@@ -209,6 +209,62 @@ Or use a tool like Postman to send a POST request to `/api/auth/register` with t
 |--------|----------|-------------|
 | POST | `/api/upload/video` | Upload video file (admin) |
 
+## Deployment (Free Hosting)
+
+You can deploy this app for free using **Render** (server) + **MongoDB Atlas** (database).
+
+### Step 1: Set Up MongoDB Atlas (Free Cloud Database)
+
+1. Go to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) and create a free account
+2. Create a **free cluster** (M0 Sandbox — free forever)
+3. Under **Database Access**, create a database user with a username and password
+4. Under **Network Access**, click "Allow Access from Anywhere" (add `0.0.0.0/0`)
+5. Click **Connect** → **Connect your application** → Copy the connection string
+6. It will look like: `mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/science_cbt`
+
+### Step 2: Deploy to Render (Free Web Hosting)
+
+1. Go to [Render](https://render.com/) and sign up with your GitHub account
+2. Click **New** → **Web Service**
+3. Connect your GitHub repo `science-cbt-system`
+4. Render will auto-detect the `render.yaml` config. If not, set manually:
+   - **Build Command:** `cd backend && npm install`
+   - **Start Command:** `cd backend && npm start`
+5. Add the environment variable:
+   - `MONGODB_URI` = your MongoDB Atlas connection string from Step 1
+6. Click **Deploy**
+
+Your app will be live at `https://science-cbt-system.onrender.com` (or similar URL).
+
+> **Note:** On Render's free tier, the server "sleeps" after 15 minutes of inactivity. The first request after sleeping takes ~30 seconds to wake up. This is fine for a final year project demo.
+
+### Running Locally (Alongside the Deployed Version)
+
+Even after deploying, you can always run the app locally:
+
+```bash
+# Clone the repo
+git clone https://github.com/ShafarHammed12/science-cbt-system.git
+cd science-cbt-system
+
+# Install dependencies
+cd backend
+npm install
+
+# Set up environment
+cp .env.example .env
+# Edit .env — use localhost MongoDB for local dev, or Atlas URI for cloud DB
+
+# Start the server
+npm start
+# Visit http://localhost:5000
+```
+
+Your local version and deployed version are completely independent. You can:
+- Use **local MongoDB** (`mongodb://localhost:27017/science_cbt`) for local development
+- Use **MongoDB Atlas** for the deployed version
+- Or point both to the same Atlas database if you want shared data
+
 ## License
 
 This project was developed as a final year project.
