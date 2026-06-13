@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Lessons - Science CBT System</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🔬 Science CBT</h2>
+        <p>Admin Panel</p>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="admin-dashboard.html"><span class="icon">🏠</span> Dashboard</a></li>
+        <li><a href="admin-topics.html"><span class="icon">📚</span> Manage Topics</a></li>
+        <li><a href="admin-lessons.html" class="active"><span class="icon">📖</span> Manage Lessons</a></li>
+        <li><a href="admin-questions.html"><span class="icon">❓</span> Manage Questions</a></li>
+        <li><a href="admin-results.html"><span class="icon">📊</span> All Results</a></li>
+        <li><a href="admin-reports.html"><span class="icon">📋</span> Reports</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="userName"></strong>
+          <span>Administrator</span>
+        </div>
+        <button class="btn btn-danger btn-sm btn-block" onclick="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1>📖 Manage Lessons</h1>
+        <button class="btn btn-primary" onclick="openModal()">+ Add Lesson</button>
+      </div>
+
+      <div id="alert" class="alert"></div>
+
+      <div class="card">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Topic</th>
+                <th>Video</th>
+                <th>Order</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="lessonsTable">
+              <tr><td colspan="5" class="text-center">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="lessonModal">
+    <div class="modal">
+      <h2 id="modalTitle">Add Lesson</h2>
+      <form id="lessonForm">
+        <input type="hidden" id="lessonId">
+        <div class="form-group">
+          <label for="title">Lesson Title</label>
+          <input type="text" id="title" required placeholder="e.g., Introduction to Living Things">
+        </div>
+        <div class="form-group">
+          <label for="topic">Topic</label>
+          <select id="topic" required>
+            <option value="">Select a topic</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="content">Lesson Content</label>
+          <textarea id="content" rows="8" required placeholder="Write the lesson content here..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="videoFile">Upload Video (optional)</label>
+          <input type="file" id="videoFile" accept="video/*">
+          <p id="currentVideo" style="font-size: 12px; margin-top: 4px; color: var(--gray-500);"></p>
+        </div>
+        <div class="form-group">
+          <label for="order">Display Order</label>
+          <input type="number" id="order" value="0" min="0">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Lesson</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Generate Questions Modal -->
+  <div class="modal-overlay" id="generateModal">
+    <div class="modal">
+      <h2>🤖 AI Generate Questions</h2>
+      <p id="generateLessonName" style="color: var(--gray-500); margin-bottom: 16px;"></p>
+      <div id="generateAlert" class="alert"></div>
+      <form id="generateForm">
+        <input type="hidden" id="generateLessonId">
+        <div class="form-group">
+          <label for="questionCount">Number of Questions to Generate</label>
+          <select id="questionCount">
+            <option value="5">5 questions</option>
+            <option value="10" selected>10 questions</option>
+            <option value="15">15 questions</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeGenerateModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="generateBtn">🤖 Generate</button>
+        </div>
+      </form>
+      <div id="generateResult" style="display:none; margin-top: 16px;">
+        <div class="alert alert-success" id="generateResultMsg"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    let lessons = [];
+    let topics = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!requireAuth() || !requireAdmin()) return;
+      document.getElementById('userName').textContent = getUser().fullName;
+      await loadTopics();
+      loadLessons();
+
+      document.getElementById('lessonForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('lessonId').value;
+        let videoUrl = '';
+
+        const videoFile = document.getElementById('videoFile').files[0];
+        if (videoFile) {
+          const formData = new FormData();
+          formData.append('video', videoFile);
+          try {
+            const uploadResult = await apiUpload('/upload/video', formData);
+            videoUrl = uploadResult.videoUrl;
+          } catch (err) {
+            alert('Video upload failed: ' + err.message);
+            return;
+          }
+        }
+
+        const data = {
+          title: document.getElementById('title').value,
+          topic: document.getElementById('topic').value,
+          content: document.getElementById('content').value,
+          order: parseInt(document.getElementById('order').value) || 0
+        };
+        if (videoUrl) data.videoUrl = videoUrl;
+
+        try {
+          if (id) {
+            await apiRequest(`/lessons/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+            showAlert('alert', 'Lesson updated!', 'success');
+          } else {
+            await apiRequest('/lessons', { method: 'POST', body: JSON.stringify(data) });
+            showAlert('alert', 'Lesson created!', 'success');
+          }
+          closeModal();
+          loadLessons();
+        } catch (error) {
+          alert('Error: ' + error.message);
+        }
+      });
+    });
+
+    async function loadTopics() {
+      topics = await apiRequest('/topics');
+      const select = document.getElementById('topic');
+      select.innerHTML = '<option value="">Select a topic</option>' +
+        topics.map(t => `<option value="${t._id}">${t.title} (${t.className})</option>`).join('');
+    }
+
+    async function loadLessons() {
+      try {
+        lessons = await apiRequest('/lessons');
+        const tbody = document.getElementById('lessonsTable');
+        if (lessons.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center">No lessons yet.</td></tr>';
+        } else {
+          tbody.innerHTML = lessons.map(l => `
+            <tr>
+              <td><strong>${l.title}</strong></td>
+              <td>${l.topic ? l.topic.title : 'N/A'}</td>
+              <td>${l.videoUrl ? '<span class="badge badge-success">Yes</span>' : '<span class="badge badge-warning">No</span>'}</td>
+              <td>${l.order}</td>
+              <td>
+                <button class="btn btn-sm btn-outline" onclick="editLesson('${l._id}')">Edit</button>
+                <button class="btn btn-sm btn-primary" onclick="openGenerateModal('${l._id}', '${l.title.replace(/'/g, "\\'")}')">🤖 Generate Q</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteLesson('${l._id}')">Delete</button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Load lessons error:', error);
+      }
+    }
+
+    function openModal(lesson) {
+      document.getElementById('lessonModal').classList.add('active');
+      if (lesson) {
+        document.getElementById('modalTitle').textContent = 'Edit Lesson';
+        document.getElementById('lessonId').value = lesson._id;
+        document.getElementById('title').value = lesson.title;
+        document.getElementById('topic').value = lesson.topic ? (lesson.topic._id || lesson.topic) : '';
+        document.getElementById('content').value = lesson.content;
+        document.getElementById('order').value = lesson.order || 0;
+        document.getElementById('currentVideo').textContent = lesson.videoUrl ? 'Current video: ' + lesson.videoUrl : '';
+      } else {
+        document.getElementById('modalTitle').textContent = 'Add Lesson';
+        document.getElementById('lessonForm').reset();
+        document.getElementById('lessonId').value = '';
+        document.getElementById('currentVideo').textContent = '';
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('lessonModal').classList.remove('active');
+    }
+
+    function editLesson(id) {
+      const lesson = lessons.find(l => l._id === id);
+      if (lesson) openModal(lesson);
+    }
+
+    async function deleteLesson(id) {
+      if (!confirm('Delete this lesson?')) return;
+      try {
+        await apiRequest(`/lessons/${id}`, { method: 'DELETE' });
+        showAlert('alert', 'Lesson deleted!', 'success');
+        loadLessons();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+
+    function openGenerateModal(lessonId, lessonTitle) {
+      document.getElementById('generateLessonId').value = lessonId;
+      document.getElementById('generateLessonName').textContent = 'Lesson: ' + lessonTitle;
+      document.getElementById('generateResult').style.display = 'none';
+      document.getElementById('generateAlert').style.display = 'none';
+      document.getElementById('generateBtn').disabled = false;
+      document.getElementById('generateBtn').textContent = '🤖 Generate';
+      document.getElementById('generateModal').classList.add('active');
+    }
+
+    function closeGenerateModal() {
+      document.getElementById('generateModal').classList.remove('active');
+    }
+
+    document.getElementById('generateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('generateBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Generating...';
+      document.getElementById('generateResult').style.display = 'none';
+      document.getElementById('generateAlert').style.display = 'none';
+
+      try {
+        const data = await apiRequest('/questions/generate', {
+          method: 'POST',
+          body: JSON.stringify({
+            lessonId: document.getElementById('generateLessonId').value,
+            count: document.getElementById('questionCount').value
+          })
+        });
+        document.getElementById('generateResultMsg').textContent = data.message;
+        document.getElementById('generateResult').style.display = 'block';
+        btn.textContent = '✅ Done!';
+      } catch (error) {
+        document.getElementById('generateAlert').className = 'alert alert-danger';
+        document.getElementById('generateAlert').textContent = error.message;
+        document.getElementById('generateAlert').style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = '🤖 Generate';
+      }
+    });
+  </script>
+</body>
+</html>

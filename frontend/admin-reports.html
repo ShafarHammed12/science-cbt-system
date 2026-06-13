@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reports - Science CBT System</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🔬 Science CBT</h2>
+        <p>Admin Panel</p>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="admin-dashboard.html"><span class="icon">🏠</span> Dashboard</a></li>
+        <li><a href="admin-topics.html"><span class="icon">📚</span> Manage Topics</a></li>
+        <li><a href="admin-lessons.html"><span class="icon">📖</span> Manage Lessons</a></li>
+        <li><a href="admin-questions.html"><span class="icon">❓</span> Manage Questions</a></li>
+        <li><a href="admin-results.html"><span class="icon">📊</span> All Results</a></li>
+        <li><a href="admin-reports.html" class="active"><span class="icon">📋</span> Reports</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="userName"></strong>
+          <span>Administrator</span>
+        </div>
+        <button class="btn btn-danger btn-sm btn-block" onclick="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1>📋 Class Reports</h1>
+      </div>
+
+      <div class="card mb-20">
+        <div class="form-group" style="max-width: 300px;">
+          <label for="classSelect">Select Class</label>
+          <select id="classSelect">
+            <option value="">Choose a class</option>
+            <option value="JSS1">JSS 1</option>
+            <option value="JSS2">JSS 2</option>
+            <option value="JSS3">JSS 3</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="loadReport()">Generate Report</button>
+      </div>
+
+      <div id="reportSection" style="display:none">
+        <div class="stats-grid mb-20">
+          <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value" id="classStudents">0</div>
+            <div class="stat-label">Students in Class</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Student Performance</h3>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Student Name</th>
+                  <th>Email</th>
+                  <th>Tests Taken</th>
+                  <th>Average Score</th>
+                  <th>Lessons Completed</th>
+                </tr>
+              </thead>
+              <tbody id="reportTable">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!requireAuth() || !requireAdmin()) return;
+      document.getElementById('userName').textContent = getUser().fullName;
+    });
+
+    async function loadReport() {
+      const className = document.getElementById('classSelect').value;
+      if (!className) { alert('Please select a class'); return; }
+
+      try {
+        const report = await apiRequest(`/reports/class/${className}`);
+        document.getElementById('reportSection').style.display = 'block';
+        document.getElementById('classStudents').textContent = report.totalStudents;
+
+        const tbody = document.getElementById('reportTable');
+        if (report.students.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center">No students in this class.</td></tr>';
+        } else {
+          tbody.innerHTML = report.students.map(s => `
+            <tr>
+              <td><strong>${s.student.fullName}</strong></td>
+              <td>${s.student.email}</td>
+              <td>${s.totalTests}</td>
+              <td><span class="badge ${s.averageScore >= 50 ? 'badge-success' : 'badge-danger'}">${s.averageScore}%</span></td>
+              <td>${s.completedLessons}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (error) {
+        alert('Error loading report: ' + error.message);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Questions - Science CBT System</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🔬 Science CBT</h2>
+        <p>Admin Panel</p>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="admin-dashboard.html"><span class="icon">🏠</span> Dashboard</a></li>
+        <li><a href="admin-topics.html"><span class="icon">📚</span> Manage Topics</a></li>
+        <li><a href="admin-lessons.html"><span class="icon">📖</span> Manage Lessons</a></li>
+        <li><a href="admin-questions.html" class="active"><span class="icon">❓</span> Manage Questions</a></li>
+        <li><a href="admin-results.html"><span class="icon">📊</span> All Results</a></li>
+        <li><a href="admin-reports.html"><span class="icon">📋</span> Reports</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="userName"></strong>
+          <span>Administrator</span>
+        </div>
+        <button class="btn btn-danger btn-sm btn-block" onclick="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1>❓ Manage Questions</h1>
+        <button class="btn btn-primary" onclick="openModal()">+ Add Question</button>
+      </div>
+
+      <div id="alert" class="alert"></div>
+
+      <div class="card mb-20">
+        <div class="form-group" style="max-width: 300px;">
+          <label for="filterTopic">Filter by Topic</label>
+          <select id="filterTopic" onchange="loadQuestions()">
+            <option value="">All Topics</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Question</th>
+                <th>Topic</th>
+                <th>Difficulty</th>
+                <th>Correct Answer</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="questionsTable">
+              <tr><td colspan="5" class="text-center">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="questionModal">
+    <div class="modal">
+      <h2 id="modalTitle">Add Question</h2>
+      <form id="questionForm">
+        <input type="hidden" id="questionId">
+        <div class="form-group">
+          <label for="question">Question</label>
+          <textarea id="question" rows="3" required placeholder="Enter the question"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="topic">Topic</label>
+          <select id="topic" required>
+            <option value="">Select a topic</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="optionA">Option A</label>
+          <input type="text" id="optionA" required placeholder="Option A">
+        </div>
+        <div class="form-group">
+          <label for="optionB">Option B</label>
+          <input type="text" id="optionB" required placeholder="Option B">
+        </div>
+        <div class="form-group">
+          <label for="optionC">Option C</label>
+          <input type="text" id="optionC" required placeholder="Option C">
+        </div>
+        <div class="form-group">
+          <label for="optionD">Option D</label>
+          <input type="text" id="optionD" required placeholder="Option D">
+        </div>
+        <div class="form-group">
+          <label for="correctAnswer">Correct Answer</label>
+          <select id="correctAnswer" required>
+            <option value="0">A</option>
+            <option value="1">B</option>
+            <option value="2">C</option>
+            <option value="3">D</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="difficulty">Difficulty</label>
+          <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Question</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    let questions = [];
+    let topics = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!requireAuth() || !requireAdmin()) return;
+      document.getElementById('userName').textContent = getUser().fullName;
+      await loadTopicsDropdown();
+      loadQuestions();
+
+      document.getElementById('questionForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('questionId').value;
+        const data = {
+          question: document.getElementById('question').value,
+          topic: document.getElementById('topic').value,
+          options: [
+            document.getElementById('optionA').value,
+            document.getElementById('optionB').value,
+            document.getElementById('optionC').value,
+            document.getElementById('optionD').value
+          ],
+          correctAnswer: parseInt(document.getElementById('correctAnswer').value),
+          difficulty: document.getElementById('difficulty').value
+        };
+
+        try {
+          if (id) {
+            await apiRequest(`/questions/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+            showAlert('alert', 'Question updated!', 'success');
+          } else {
+            await apiRequest('/questions', { method: 'POST', body: JSON.stringify(data) });
+            showAlert('alert', 'Question created!', 'success');
+          }
+          closeModal();
+          loadQuestions();
+        } catch (error) {
+          alert('Error: ' + error.message);
+        }
+      });
+    });
+
+    async function loadTopicsDropdown() {
+      topics = await apiRequest('/topics');
+      const options = topics.map(t => `<option value="${t._id}">${t.title} (${t.className})</option>`).join('');
+      document.getElementById('topic').innerHTML = '<option value="">Select a topic</option>' + options;
+      document.getElementById('filterTopic').innerHTML = '<option value="">All Topics</option>' + options;
+    }
+
+    async function loadQuestions() {
+      try {
+        const filter = document.getElementById('filterTopic').value;
+        const url = filter ? `/questions?topic=${filter}` : '/questions';
+        questions = await apiRequest(url);
+        const tbody = document.getElementById('questionsTable');
+        if (questions.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center">No questions yet.</td></tr>';
+        } else {
+          tbody.innerHTML = questions.map(q => `
+            <tr>
+              <td>${q.question.length > 60 ? q.question.substring(0, 60) + '...' : q.question}</td>
+              <td>${q.topic ? q.topic.title : 'N/A'}</td>
+              <td><span class="badge badge-${q.difficulty === 'easy' ? 'success' : q.difficulty === 'hard' ? 'danger' : 'warning'}">${q.difficulty}</span></td>
+              <td>${String.fromCharCode(65 + q.correctAnswer)}</td>
+              <td>
+                <button class="btn btn-sm btn-outline" onclick="editQuestion('${q._id}')">Edit</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteQuestion('${q._id}')">Delete</button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Load questions error:', error);
+      }
+    }
+
+    function openModal(question) {
+      document.getElementById('questionModal').classList.add('active');
+      if (question) {
+        document.getElementById('modalTitle').textContent = 'Edit Question';
+        document.getElementById('questionId').value = question._id;
+        document.getElementById('question').value = question.question;
+        document.getElementById('topic').value = question.topic ? (question.topic._id || question.topic) : '';
+        document.getElementById('optionA').value = question.options[0];
+        document.getElementById('optionB').value = question.options[1];
+        document.getElementById('optionC').value = question.options[2];
+        document.getElementById('optionD').value = question.options[3];
+        document.getElementById('correctAnswer').value = question.correctAnswer;
+        document.getElementById('difficulty').value = question.difficulty;
+      } else {
+        document.getElementById('modalTitle').textContent = 'Add Question';
+        document.getElementById('questionForm').reset();
+        document.getElementById('questionId').value = '';
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('questionModal').classList.remove('active');
+    }
+
+    function editQuestion(id) {
+      const q = questions.find(x => x._id === id);
+      if (q) openModal(q);
+    }
+
+    async function deleteQuestion(id) {
+      if (!confirm('Delete this question?')) return;
+      try {
+        await apiRequest(`/questions/${id}`, { method: 'DELETE' });
+        showAlert('alert', 'Question deleted!', 'success');
+        loadQuestions();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+  </script>
+</body>
+</html>
