@@ -72,6 +72,8 @@ exports.getCBTQuestions = async (req, res) => {
 exports.generateQuestions = async (req, res) => {
   try {
     const { lessonId, count } = req.body;
+    console.log("lessonId:", lessonId);
+    console.log("count:", count);
     const numQuestions = Math.min(parseInt(count) || 5, 15);
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -80,6 +82,7 @@ exports.generateQuestions = async (req, res) => {
     }
 
     const lesson = await Lesson.findById(lessonId).populate('topic', 'title className');
+    console.log("Lesson:", lesson);
     if (!lesson) {
       return res.status(404).json({ message: 'Lesson not found' });
     }
@@ -114,6 +117,7 @@ Respond ONLY with a valid JSON array in this exact format (no markdown, no code 
 
 Where correctAnswer is the index (0-3) of the correct option, and difficulty is "easy", "medium", or "hard".`;
 
+    console.log("Sending request to Gemini...");
     const result = await model.generateContent(prompt);
     const responseText = result.response.text().trim();
 
@@ -153,6 +157,12 @@ Where correctAnswer is the index (0-3) of the correct option, and difficulty is 
       questions: savedQuestions
     });
   } catch (error) {
-    res.status(500).json({ message: 'AI generation failed: ' + error.message });
-  }
+  console.error("FULL ERROR:");
+  console.error(error);
+
+  res.status(500).json({
+    message: error.message,
+    stack: error.stack
+  });
+}
 };
